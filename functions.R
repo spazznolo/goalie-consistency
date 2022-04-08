@@ -87,6 +87,20 @@ ent_test_xg <- function(goals_, x_g_, x_gsaa_xg_) {
   
 }
 
+# 
+# papers used in: one
+std_pts <- function(s) {
+  
+  s1 <- rbinom(82*30, 1, 0.1) - s
+  s2 <- split(s1, ceiling(seq_along(s1)/30))
+  s3 <- unlist(lapply(s2, sum))
+  
+  pts <- (sum(s3 > 0)*2) + (sum(s3 == 0)*1.5)
+  
+  return(pts)
+  
+}
+
 
 # create consistent theme for all plots
 # used in posts: all
