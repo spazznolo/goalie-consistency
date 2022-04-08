@@ -1,7 +1,7 @@
 
 
 # calculate normalized entropy of a series
-# papers used in: one
+# used in posts: two, three
 norm_ent <- function(s){
 
   s1 <- which(s %in% 1)
@@ -17,7 +17,7 @@ norm_ent <- function(s){
 }
 
 # 
-# papers used in: one, two
+# used in posts: one, two
 ent_test <- function(s) {
   
   n <- 10000
@@ -30,7 +30,7 @@ ent_test <- function(s) {
 }
 
 # 
-# papers used in: one
+# used in posts: one
 poission_season_simulations <- function(goalie_, goal_share_) {
   
   total_goals = 5.5
@@ -51,19 +51,6 @@ poission_season_simulations <- function(goalie_, goal_share_) {
   
 }
 
-# 
-# papers used in: one
-std_pts <- function(s) {
-  
-  s1 <- rbinom(82*30, 1, 0.1) - s
-  s2 <- split(s1, ceiling(seq_along(s1)/30))
-  s3 <- unlist(lapply(s2, sum))
-  
-  pts <- (sum(s3 > 0)*2) + (sum(s3 == 0)*1.5)
-  
-  return(pts)
-  
-}
 
 norm_ent_xg <- function(s, t){
   
@@ -80,7 +67,7 @@ norm_ent_xg <- function(s, t){
   
 }
 
-# need: x_g, x_gsaa_xg, goals
+
 ent_test_xg <- function(goals_, x_g_, x_gsaa_xg_) {
   
   pb$tick()
@@ -102,7 +89,7 @@ ent_test_xg <- function(goals_, x_g_, x_gsaa_xg_) {
 
 
 # create consistent theme for all plots
-# papers used in: all
+# used in posts: all
 dark_theme <- function() {
   
   theme(

@@ -1,7 +1,15 @@
-## https://peter-tanner.com/moneypuck/downloads/shots_2007.zip
 
+# insert download directory here
+download_dir <- '~/Downloads/'
+
+# download moneypuck data
+temp <- tempfile()
+download.file("https://peter-tanner.com/moneypuck/downloads/shots_2007-2020.zip", temp)
+unzip(temp, exdir = download_dir)
+
+# create analysis set
 goalies <- 
-  map_dfr(2007:2020, ~read_csv(paste0('~/Downloads/shots_', ., '.zip'))) %>%
+  read_csv(paste0(download_dir, "shots_2007-2020.csv")) %>%
   clean_names %>%
   select(season, game_id, goalie_id = goalie_id_for_shot, goalie_name = goalie_name_for_shot, goal, x_goal)
 
