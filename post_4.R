@@ -100,7 +100,7 @@ career_posteriors <- career_save_pcts %>%
     adj_sv_pct = (alpha_0 + saves)/(alpha_0 + beta_0 + shots),  # Calculate adjusted save percentage
     alpha_post = alpha_0 + saves,  # Calculate posterior alpha values
     beta_post = beta_0 + goals,  # Calculate posterior beta values
-    better_avg = map2_dbl(alpha_post, beta_post, ~mean(rbeta(10000, shape1 = .x, shape2 = .y) > median_sv_pct))  # Calculate proportion of values greater than median_sv_pct
+    better_avg = map2_dbl(alpha_post, beta_post, ~mean(rbeta(1000000, shape1 = .x, shape2 = .y) > median_sv_pct))  # Calculate proportion of values greater than median_sv_pct
   ) %>%
   arrange(desc(adj_sv_pct))  # Arrange in descending order of adj_sv_pct
 
@@ -118,7 +118,7 @@ get_random_outcomes <- function(goalie_name_) {
     beta_post <- filtered_data$beta_post
     
     # Use map2_dbl to iterate over the values and compute the mean of the rbeta samples
-    result <- rbeta(10000, shape1 = alpha_post, shape2 = beta_post)
+    result <- rbeta(100000, shape1 = alpha_post, shape2 = beta_post)
     
     # Return the resulting vector of random outcomes
     return(result)
@@ -185,7 +185,8 @@ plot_h2h_dists <- function(goalie_a, goalie_b) {
 
 
 # Example of plot_h2h_dists function
-plot_h2h_dists('Jeremy Swayman', 'Andrei Vasilevskiy')
+plot_h2h_dists('Jake Oettinger', 'Jeremy Swayman')
+comp_h2h('Jake Oettinger', 'Jeremy Swayman')
 
 ggsave(filename = 'goalie-four-three.png', path = '/Users/ada/Documents/projects/spazznolo.github.io/figs', width = 5, height = 3, device = 'png', dpi = 320)
 
