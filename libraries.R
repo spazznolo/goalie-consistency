@@ -2,10 +2,6 @@
 # functional
 library(tidyverse)
 library(janitor)
-library(progress)
-
-# aesthetic
-library(ggridges)
-library(gt)
-library(webshot)
-
+library(MASS)
+library(fitdistrplus)
+select = dplyr::select

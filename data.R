@@ -3,18 +3,19 @@
 download_dir <- '~/Downloads/'
 
 # download moneypuck data
-temp <- tempfile()
-download.file("https://peter-tanner.com/moneypuck/downloads/shots_2007-2020.zip", temp)
-unzip(temp, exdir = download_dir)
+#temp <- tempfile()
+#download.file("https://peter-tanner.com/moneypuck/downloads/shots_2007-2021.zip", temp)
+#unzip(temp, exdir = download_dir)
 
 # create analysis set
-goalies <- 
-  read_csv(paste0(download_dir, "shots_2007-2020.csv")) %>%
-  clean_names %>%
-  select(season, game_id, goalie_id = goalie_id_for_shot, goalie_name = goalie_name_for_shot, goal, x_goal)
+shots <- 
+  read_csv(paste0(download_dir, "shots_2007-2021.csv")) %>%
+  clean_names() %>%
+  select(season, game_id, goalie_id = goalie_id_for_shot, goalie_name = goalie_name_for_shot, goal, x_goal,
+         home_skaters_on_ice, away_skaters_on_ice)
 
 goalie_summary <-
-  goalies %>%
+  shots %>%
   group_by(goalie_id, goalie_name, season) %>%
   summarize(
     shots = n(), 
