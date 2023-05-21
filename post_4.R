@@ -2,7 +2,7 @@
 # Required packages: dplyr, ggplot2, fitdistrplus
 
 # Required variables:
-# - shots (data frame or tibble): Contains shot data
+# - shots (data frame or tibble): Contains shot data, created in 'data' script
 # - single_color: Specifies the fill color for the histogram
 
 
@@ -46,6 +46,7 @@ ggsave(
 
 
 
+# Fit prior distribution to the observed career save percentages
 
 # Generate sequence of save percentage values
 sv_pct_fits = seq(0.91, 0.95, length = 60)
@@ -62,6 +63,8 @@ prior_points = dbeta(sv_pct_fits, shape1 = alpha_0, shape2 = beta_0)
 
 # Normalize probabilities to sum to 1
 prior_points = prior_points/sum(prior_points)
+
+
 
 # Create a histogram of career save percentages overlaid with the prior probability densities
 ggplot() +
@@ -87,47 +90,102 @@ ggsave(
 )
 
 
+
+# Calculate median career save percentage 
 median_sv_pct <- median(career_save_pcts$mean_sv_pct)
 
-career_save_pcts %>%
+# Calculate adjusted save percentage and posterior alpha and beta values
+career_posteriors <- career_save_pcts %>%
   mutate(
-    adj_sv_pct = (alpha_0 + saves)/(alpha_0 + beta_0 + shots),
-    alpha_post = alpha_0 + saves,
-    beta_post = beta_0 + goals,
-    better_avg = pmap_dbl(., ~mean(rbeta(10000, shape1 = alpha_post, shape2 = beta_post) > median_sv_pct))
+    adj_sv_pct = (alpha_0 + saves)/(alpha_0 + beta_0 + shots),  # Calculate adjusted save percentage
+    alpha_post = alpha_0 + saves,  # Calculate posterior alpha values
+    beta_post = beta_0 + goals,  # Calculate posterior beta values
+    better_avg = map2_dbl(alpha_post, beta_post, ~mean(rbeta(10000, shape1 = .x, shape2 = .y) > median_sv_pct))  # Calculate proportion of values greater than median_sv_pct
   ) %>%
-  arrange(desc(better_avg))
+  arrange(desc(adj_sv_pct))  # Arrange in descending order of adj_sv_pct
 
-comp_h2h
-comp_mean
-mean(rbeta(10000, shape1 = alpha_0 + vasilevskiy$saves, shape2 = beta_0 + vasilevskiy$goals) > median_sv_pct)
-mean(rbeta(10000, shape1 = 26105, shape2 = 1685) > median_sv_pct)
-mean(rbeta(10000, shape1 = alpha_0 + 23482, shape2 = beta_0 + 1484) > median_sv_pct)
+# Function to obtain random outcomes for a specific goalie from career_posteriors tibble
+get_random_outcomes <- function(goalie_name_) {
+
+  # Filter the tibble based on the goalie_name
+  filtered_data <- career_posteriors %>% filter(goalie_name == goalie_name_)
+  
+  # Check if any rows match the condition
+  if (nrow(filtered_data) > 0) {
+    
+    # Extract the alpha_post and beta_post values from the filtered tibble
+    alpha_post <- filtered_data$alpha_post
+    beta_post <- filtered_data$beta_post
+    
+    # Use map2_dbl to iterate over the values and compute the mean of the rbeta samples
+    result <- rbeta(10000, shape1 = alpha_post, shape2 = beta_post)
+    
+    # Return the resulting vector of random outcomes
+    return(result)
+  } else {
+    # Handle the case when no rows match the condition
+    return("No data found for the specified goalie")
+  }
+}
+
+# Function to compare two goalies based on their random outcomes
+comp_h2h <- function(goalie_a, goalie_b) {
+  
+  # Obtain random outcomes for goalie_a
+  outcomes_a <- get_random_outcomes(goalie_a)
+  
+  # Obtain random outcomes for goalie_b
+  outcomes_b <- get_random_outcomes(goalie_b)
+  
+  # Check if any outcomes are available for both goalies
+  if (length(outcomes_a) == 0 || length(outcomes_b) == 0) {
+    stop("Not enough data available for comparison.")
+  }
+  
+  # Compute the mean proportion of outcomes where goalie_a performs better than goalie_b
+  return(paste("Probability that", goalie_a, "is better than", goalie_b, "is", 100*mean(outcomes_a > outcomes_b), "%."))
+}
+
+# Example of comp_h2h function
+comp_h2h('Igor Shesterkin', 'Andrei Vasilevskiy')
+
+# Function to plot comparison of two goalie posterior distributions
+plot_h2h_dists <- function(goalie_a, goalie_b) {
+  
+  # Filter the career_posteriors tibble for the specified goalies and calculate the adjusted save distributions
+  adj_sv_dist <-
+    career_posteriors %>%
+    filter(goalie_name %in% c(goalie_a, goalie_b)) %>%
+    transmute(
+      goalie_name, adj_sv_pct,
+      adj_sv_dist = pmap(list(alpha_post, beta_post), ~ dbeta(sv_pct_fits, shape1 = ..1, shape2 = ..2))
+    )
+  
+  # Create a histogram of samples from the prior distribution, adjusted save distributions, and vertical lines for medians and adjusted save percentages
+  ggplot() +
+    geom_histogram(aes(sample(sv_pct_fits, 100000, prob = prior_points, replace = TRUE)), fill = single_color, col = 'black', alpha = 0.35, bins = 60) +
+    geom_vline(aes(xintercept = median_sv_pct), lwd = 0.75, col = 'grey', alpha = 0.35, linetype = 'dashed') +
+    geom_line(aes(sv_pct_fits, 100000*adj_sv_dist$adj_sv_dist[[1]]/sum(adj_sv_dist$adj_sv_dist[[1]])), col = 'white', lwd = 0.75, alpha = 0.75) +
+    geom_vline(aes(xintercept = adj_sv_dist$adj_sv_pct[1]), lwd = 0.75, col = 'white', alpha = 0.60, linetype = 'dashed') +
+    annotate("text", x = .915, y = 4000, label = adj_sv_dist$goalie_name[1], col = 'white') +
+    geom_line(aes(sv_pct_fits, 100000*adj_sv_dist$adj_sv_dist[[2]]/sum(adj_sv_dist$adj_sv_dist[[2]])), col = 'grey', lwd = 0.75, alpha = 0.75) +
+    geom_vline(aes(xintercept = adj_sv_dist$adj_sv_pct[2]), lwd = 0.75, col = 'grey', alpha = 0.60, linetype = 'dashed') +
+    annotate("text", x = .915, y = 5000, label = adj_sv_dist$goalie_name[2], col = 'grey') +
+    dark_theme() +
+    theme(
+      panel.grid.major = element_line(color = 'black'),
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank()
+    ) +
+    labs(x = '', y = '') +
+    scale_y_continuous()
+  
+}
 
 
-vasilevsky_points = dbeta(sv_pct_fits, shape1 = alpha_0 + 18024, shape2 = beta_0 + 1131)
-vasilevsky_points = vasilevsky_points/sum(vasilevsky_points)
 
-sway_points = dbeta(sv_pct_fits, shape1 = alpha_0 + 2034, shape2 = beta_0 + 125)
-sway_points = sway_points/sum(sway_points)
-
-vasy_avg = (alpha_0 + 18024)/(alpha_0 + beta_0 + 19155)
-sway_avg = (alpha_0 + 2034)/(alpha_0 + beta_0 + 2159)
-
-ggplot() +
-  geom_vline(aes(xintercept = median_sv_pct), lwd = 0.75, col = 'grey', alpha = 0.35, linetype = 'dashed') +
-  geom_line(aes(sv_pct_fits, vasilevsky_points*100000), col = 'white', lwd = 0.75, alpha = 0.75) +
-  geom_vline(aes(xintercept = vasy_avg), lwd = 0.75, col = 'white', alpha = 0.75, linetype = 'dashed') +
-  geom_line(aes(sv_pct_fits, sway_points*100000), col = 'grey', lwd = 0.75, alpha = 0.75) +
-  geom_vline(aes(xintercept = sway_avg), lwd = 0.75, col = 'grey', alpha = 0.75, linetype = 'dashed') +
-  geom_histogram(aes(sample(sv_pct_fits, 100000, prob = prior_points, replace = TRUE)), fill = single_color, col = 'black', alpha = 0.35, bins = 60) +
-  dark_theme() +
-  theme(
-    panel.grid.major = element_line(color = 'black'),
-    axis.text.y=element_blank(),
-    axis.ticks.y=element_blank()) +
-  labs(x = '', y = '') +
-  scale_y_continuous()
+# Example of plot_h2h_dists function
+plot_h2h_dists('Jeremy Swayman', 'Andrei Vasilevskiy')
 
 ggsave(filename = 'goalie-four-three.png', path = '/Users/ada/Documents/projects/spazznolo.github.io/figs', width = 5, height = 3, device = 'png', dpi = 320)
 
@@ -136,41 +194,5 @@ ggsave(filename = 'goalie-four-three.png', path = '/Users/ada/Documents/projects
 
 
 
-
-career_save_pcts <-
-  shots %>%
-  dplyr::group_by(goalie_name) %>%
-  dplyr::summarize(
-    shots = dplyr::n(),
-    saves = shots - sum(goal),
-    goals = sum(goal),
-    mean_sv_pct = 1 - mean(goal),
-    .groups = 'drop') %>%
-  drop_na()
-
-library(VGAM)
-
-# negative log likelihood of data given alpha; beta
-ll <- function(alpha, beta) {
-  -sum(dbetabinom.ab(career_save_pcts$saves, career_save_pcts$shots, alpha, beta, log = TRUE))
-}
-
-m <- mle(ll, start = list(alpha = 9, beta = 10), method = "L-BFGS-B", lower=c(0.0001,0.0001), upper = c(Inf, Inf))
-coef(m)
-
-
-prior_points_1 = dbeta(sv_pct_fits, shape1 = 4056, shape2 = 285)
-prior_points_1 = prior_points_1/sum(prior_points_1)
-
-ggplot() +
-  geom_line(aes(sv_pct_fits, prior_points*182*2), col = 'white', lwd = 1, alpha = 0.75) +
-  geom_line(aes(sv_pct_fits, prior_points_1*182*2), col = 'white', lwd = 1, alpha = 0.75) +
-  dark_theme() +
-  theme(
-    panel.grid.major = element_line(color = 'black'),
-    axis.text.y=element_blank(),
-    axis.ticks.y=element_blank()) +
-  labs(x = '', y = '') +
-  scale_y_continuous()
 
 
