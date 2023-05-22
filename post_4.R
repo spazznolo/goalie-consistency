@@ -16,7 +16,7 @@ career_save_pcts <-
     saves = shots - goals, # Calculate the total number of saves made by subtracting the total goals from the total shots
     mean_sv_pct = 1 - mean(goal),  # Calculate the mean save percentage by subtracting the mean of goals from 1
     .groups = 'drop') %>%  # Drop grouping information
-  filter(shots > 750) %>%  # Keep goalies with more than 750 shots
+  filter(shots > 600, mean_sv_pct > 0.920) %>%  # Keep goalies with more than 750 shots
   drop_na()  # Remove rows with missing values
 
 
@@ -24,15 +24,14 @@ career_save_pcts <-
 # Create a histogram of mean save percentages
 career_save_pcts %>%
   ggplot() +
-  geom_histogram(aes(mean_sv_pct), fill = single_color, col = 'black', alpha = 0.75) +  # Plot histogram with specified aesthetics
+  geom_histogram(aes(mean_sv_pct), fill = single_color, col = 'black', alpha = 0.75, bins = 20) +  # Plot histogram with specified aesthetics
   dark_theme() +  # Apply a dark theme to the plot
   theme(
     panel.grid.major = element_line(color = 'black'),  # Customize major grid lines
     axis.text.y = element_blank(),  # Remove y-axis text
     axis.ticks.y = element_blank()  # Remove y-axis ticks
   ) +
-  labs(x = '', y = '') +  # Set x and y axis labels as blank
-  xlim(c(0.91, 0.95))  # Set the x-axis limits
+  labs(x = '', y = '')  # Set x and y axis labels as blank
 
 # Save the plot as a PNG file
 ggsave(
@@ -49,7 +48,7 @@ ggsave(
 # Fit prior distribution to the observed career save percentages
 
 # Generate sequence of save percentage values
-sv_pct_fits = seq(0.91, 0.95, length = 60)
+sv_pct_fits = seq(min(career_save_pcts$mean_sv_pct), max(career_save_pcts$mean_sv_pct), length = 60)
 
 # Fit a beta distribution to the career save percentages using maximum likelihood estimation
 goalie_prior = fitdist(career_save_pcts$mean_sv_pct, "beta", method = 'mle')
@@ -68,20 +67,19 @@ prior_points = prior_points/sum(prior_points)
 
 # Create a histogram of career save percentages overlaid with the prior probability densities
 ggplot() +
-  geom_histogram(data = career_save_pcts, aes(mean_sv_pct), fill = single_color, col = 'black', alpha = 0.75, bins = 30) +
-  geom_line(aes(sv_pct_fits, prior_points*182*2), col = 'white', lwd = 1, alpha = 0.75) +
+  geom_histogram(data = career_save_pcts, aes(mean_sv_pct), fill = single_color, col = 'black', alpha = 0.75, bins = 20) +
+  geom_line(aes(sv_pct_fits, prior_points*180*3), col = 'white', lwd = 1, alpha = 0.75) +
   dark_theme() +
   theme(
     panel.grid.major = element_line(color = 'black'),  # Customize major grid lines
     axis.text.y = element_blank(),  # Remove y-axis text
     axis.ticks.y = element_blank()  # Remove y-axis ticks
   ) +
-  labs(x = '', y = '') +
-  scale_y_continuous()
+  labs(x = '', y = '')
 
 # Save the plot as a PNG file
 ggsave(
-  filename = 'goalie-four-twoo.png',  # Specify the file name
+  filename = 'goalie-four-two.png',  # Specify the file name
   path = '/Users/ada/Documents/projects/spazznolo.github.io/figs',  # Specify the file path
   width = 5,  # Set the width of the plot
   height = 3,  # Set the height of the plot
@@ -103,6 +101,7 @@ career_posteriors <- career_save_pcts %>%
     better_avg = map2_dbl(alpha_post, beta_post, ~mean(rbeta(1000000, shape1 = .x, shape2 = .y) > median_sv_pct))  # Calculate proportion of values greater than median_sv_pct
   ) %>%
   arrange(desc(adj_sv_pct))  # Arrange in descending order of adj_sv_pct
+
 
 # Function to obtain random outcomes for a specific goalie from career_posteriors tibble
 get_random_outcomes <- function(goalie_name_) {
@@ -147,7 +146,8 @@ comp_h2h <- function(goalie_a, goalie_b) {
 }
 
 # Example of comp_h2h function
-comp_h2h('Igor Shesterkin', 'Andrei Vasilevskiy')
+comp_h2h('Jake Oettinger', 'Jeremy Swayman')
+
 
 # Function to plot comparison of two goalie posterior distributions
 plot_h2h_dists <- function(goalie_a, goalie_b) {
@@ -163,14 +163,14 @@ plot_h2h_dists <- function(goalie_a, goalie_b) {
   
   # Create a histogram of samples from the prior distribution, adjusted save distributions, and vertical lines for medians and adjusted save percentages
   ggplot() +
-    geom_histogram(aes(sample(sv_pct_fits, 100000, prob = prior_points, replace = TRUE)), fill = single_color, col = 'black', alpha = 0.35, bins = 60) +
+    geom_histogram(aes(sample(sv_pct_fits, 100000, prob = prior_points, replace = TRUE)), fill = single_color, col = 'black', alpha = 0.5, bins = 60) +
     geom_vline(aes(xintercept = median_sv_pct), lwd = 0.75, col = 'grey', alpha = 0.35, linetype = 'dashed') +
     geom_line(aes(sv_pct_fits, 100000*adj_sv_dist$adj_sv_dist[[1]]/sum(adj_sv_dist$adj_sv_dist[[1]])), col = 'white', lwd = 0.75, alpha = 0.75) +
     geom_vline(aes(xintercept = adj_sv_dist$adj_sv_pct[1]), lwd = 0.75, col = 'white', alpha = 0.60, linetype = 'dashed') +
-    annotate("text", x = .915, y = 4000, label = adj_sv_dist$goalie_name[1], col = 'white') +
+    annotate("text", x = .930, y = 4000, label = adj_sv_dist$goalie_name[1], col = 'white') +
     geom_line(aes(sv_pct_fits, 100000*adj_sv_dist$adj_sv_dist[[2]]/sum(adj_sv_dist$adj_sv_dist[[2]])), col = 'grey', lwd = 0.75, alpha = 0.75) +
     geom_vline(aes(xintercept = adj_sv_dist$adj_sv_pct[2]), lwd = 0.75, col = 'grey', alpha = 0.60, linetype = 'dashed') +
-    annotate("text", x = .915, y = 5000, label = adj_sv_dist$goalie_name[2], col = 'grey') +
+    annotate("text", x = .930, y = 5000, label = adj_sv_dist$goalie_name[2], col = 'grey') +
     dark_theme() +
     theme(
       panel.grid.major = element_line(color = 'black'),
@@ -182,18 +182,15 @@ plot_h2h_dists <- function(goalie_a, goalie_b) {
   
 }
 
-
-
 # Example of plot_h2h_dists function
 plot_h2h_dists('Jake Oettinger', 'Jeremy Swayman')
-comp_h2h('Jake Oettinger', 'Jeremy Swayman')
 
-ggsave(filename = 'goalie-four-three.png', path = '/Users/ada/Documents/projects/spazznolo.github.io/figs', width = 5, height = 3, device = 'png', dpi = 320)
-
-
-
-
-
-
-
-
+# Save the plot as a PNG file
+ggsave(
+  filename = 'goalie-four-three.png',  # Specify the file name
+  path = '/Users/ada/Documents/projects/spazznolo.github.io/figs',  # Specify the file path
+  width = 5,  # Set the width of the plot
+  height = 3,  # Set the height of the plot
+  device = 'png',  # Specify the device to use for saving (PNG format)
+  dpi = 320  # Set the resolution of the plot
+)

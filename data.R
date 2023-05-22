@@ -12,7 +12,8 @@ shots <-
   read_csv(paste0(download_dir, "shots_2007-2021.csv")) %>%
   clean_names() %>%
   select(season, game_id, goalie_id = goalie_id_for_shot, goalie_name = goalie_name_for_shot, goal, x_goal,
-         home_skaters_on_ice, away_skaters_on_ice)
+         home_skaters_on_ice, away_skaters_on_ice) %>%
+  filter(home_skaters_on_ice == 5, away_skaters_on_ice == 5) 
 
 goalie_summary <-
   shots %>%
