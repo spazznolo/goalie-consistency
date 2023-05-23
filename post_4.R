@@ -6,9 +6,9 @@
 # - single_color: Specifies the fill color for the histogram
 
 
-# Calculate career save percentages for goalies
-career_save_pcts <- 
-  shots %>%  # Assuming 'shots' is a data frame or tibble containing shot data
+# Calculate career statistics for goalies
+career_statistics <- 
+  shots %>%  # tibble containing shot data loaded by the 'data' script
   group_by(goalie_name) %>%  # Group shots by goalie name
   summarize(
     shots = n(),  # Count the number of shots for each goalie
@@ -16,22 +16,23 @@ career_save_pcts <-
     saves = shots - goals, # Calculate the total number of saves made by subtracting the total goals from the total shots
     mean_sv_pct = 1 - mean(goal),  # Calculate the mean save percentage by subtracting the mean of goals from 1
     .groups = 'drop') %>%  # Drop grouping information
-  filter(shots > 600, mean_sv_pct > 0.920) %>%  # Keep goalies with more than 750 shots
+  filter(shots > 600) %>%  # Keep goalies with more than 750 shots
   drop_na()  # Remove rows with missing values
 
 
 
 # Create a histogram of mean save percentages
-career_save_pcts %>%
+career_statistics %>%
   ggplot() +
-  geom_histogram(aes(mean_sv_pct), fill = single_color, col = 'black', alpha = 0.75, bins = 20) +  # Plot histogram with specified aesthetics
+  geom_histogram(aes(mean_sv_pct), fill = single_color, col = 'black', alpha = 0.75, bins = 15) +  # Plot histogram with specified aesthetics
   dark_theme() +  # Apply a dark theme to the plot
   theme(
     panel.grid.major = element_line(color = 'black'),  # Customize major grid lines
     axis.text.y = element_blank(),  # Remove y-axis text
     axis.ticks.y = element_blank()  # Remove y-axis ticks
   ) +
-  labs(x = '', y = '')  # Set x and y axis labels as blank
+  labs(x = '', y = '') +  # Set x and y axis labels as blank
+  xlim(0.915, 0.957)
 
 # Save the plot as a PNG file
 ggsave(
@@ -48,10 +49,10 @@ ggsave(
 # Fit prior distribution to the observed career save percentages
 
 # Generate sequence of save percentage values
-sv_pct_fits = seq(min(career_save_pcts$mean_sv_pct), max(career_save_pcts$mean_sv_pct), length = 60)
+sv_pct_fits = seq(0.915, 0.957, length = 45)
 
 # Fit a beta distribution to the career save percentages using maximum likelihood estimation
-goalie_prior = fitdist(career_save_pcts$mean_sv_pct, "beta", method = 'mle')
+goalie_prior = fitdist(career_statistics$mean_sv_pct, "beta", method = 'mle')
 
 # Extract the estimated shape parameters from the fitted beta distribution
 alpha_0 = goalie_prior$estimate[1]
@@ -67,7 +68,7 @@ prior_points = prior_points/sum(prior_points)
 
 # Create a histogram of career save percentages overlaid with the prior probability densities
 ggplot() +
-  geom_histogram(data = career_save_pcts, aes(mean_sv_pct), fill = single_color, col = 'black', alpha = 0.75, bins = 20) +
+  geom_histogram(data = career_statistics, aes(mean_sv_pct), fill = single_color, col = 'black', alpha = 0.75, bins = 15) +
   geom_line(aes(sv_pct_fits, prior_points*180*3), col = 'white', lwd = 1, alpha = 0.75) +
   dark_theme() +
   theme(
@@ -75,7 +76,8 @@ ggplot() +
     axis.text.y = element_blank(),  # Remove y-axis text
     axis.ticks.y = element_blank()  # Remove y-axis ticks
   ) +
-  labs(x = '', y = '')
+  labs(x = '', y = '') +
+  xlim(0.915, 0.957)
 
 # Save the plot as a PNG file
 ggsave(
@@ -90,10 +92,11 @@ ggsave(
 
 
 # Calculate median career save percentage 
-median_sv_pct <- median(career_save_pcts$mean_sv_pct)
+median_sv_pct <- median(career_statistics$mean_sv_pct)
 
 # Calculate adjusted save percentage and posterior alpha and beta values
-career_posteriors <- career_save_pcts %>%
+career_posteriors <- 
+  career_statistics %>%
   mutate(
     adj_sv_pct = (alpha_0 + saves)/(alpha_0 + beta_0 + shots),  # Calculate adjusted save percentage
     alpha_post = alpha_0 + saves,  # Calculate posterior alpha values
@@ -146,7 +149,7 @@ comp_h2h <- function(goalie_a, goalie_b) {
 }
 
 # Example of comp_h2h function
-comp_h2h('Jake Oettinger', 'Jeremy Swayman')
+comp_h2h('Jeremy Swayman', 'Jake Oettinger')
 
 
 # Function to plot comparison of two goalie posterior distributions
@@ -163,14 +166,14 @@ plot_h2h_dists <- function(goalie_a, goalie_b) {
   
   # Create a histogram of samples from the prior distribution, adjusted save distributions, and vertical lines for medians and adjusted save percentages
   ggplot() +
-    geom_histogram(aes(sample(sv_pct_fits, 100000, prob = prior_points, replace = TRUE)), fill = single_color, col = 'black', alpha = 0.5, bins = 60) +
+    geom_histogram(aes(sample(sv_pct_fits, 100000, prob = prior_points, replace = TRUE)), fill = single_color, col = 'black', alpha = 0.5, bins = 45) +
     geom_vline(aes(xintercept = median_sv_pct), lwd = 0.75, col = 'grey', alpha = 0.35, linetype = 'dashed') +
     geom_line(aes(sv_pct_fits, 100000*adj_sv_dist$adj_sv_dist[[1]]/sum(adj_sv_dist$adj_sv_dist[[1]])), col = 'white', lwd = 0.75, alpha = 0.75) +
     geom_vline(aes(xintercept = adj_sv_dist$adj_sv_pct[1]), lwd = 0.75, col = 'white', alpha = 0.60, linetype = 'dashed') +
-    annotate("text", x = .930, y = 4000, label = adj_sv_dist$goalie_name[1], col = 'white') +
+    annotate("text", x = .925, y = 4000, label = adj_sv_dist$goalie_name[1], col = 'white') +
     geom_line(aes(sv_pct_fits, 100000*adj_sv_dist$adj_sv_dist[[2]]/sum(adj_sv_dist$adj_sv_dist[[2]])), col = 'grey', lwd = 0.75, alpha = 0.75) +
     geom_vline(aes(xintercept = adj_sv_dist$adj_sv_pct[2]), lwd = 0.75, col = 'grey', alpha = 0.60, linetype = 'dashed') +
-    annotate("text", x = .930, y = 5000, label = adj_sv_dist$goalie_name[2], col = 'grey') +
+    annotate("text", x = .925, y = 5000, label = adj_sv_dist$goalie_name[2], col = 'grey') +
     dark_theme() +
     theme(
       panel.grid.major = element_line(color = 'black'),
