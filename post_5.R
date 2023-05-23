@@ -11,55 +11,68 @@ career_save_pcts <-
     exp_g = sum(x_goal),
     gsa_exp = (sum(x_goal)/sum(goal)) - 1 + 0.5,
     exp_f = 1 - (exp_g/shots),
-    adj_sv_pct = .943 + (sv_pct - exp_f),
+    adj_sv_pct = (.9406 + (sv_pct - exp_f)),
+    inv_adj_sv_pct = 1 - adj_sv_pct,
+    adj_saves = adj_sv_pct*shots,
     .groups = 'drop') %>%
   dplyr::filter(exp_g > 20) %>%
   drop_na()
 
-
-career_save_pcts %>%
-  ggplot() +
-  geom_point(aes(shots, adj_sv_pct))
-
-library(MASS)
-
-# Fit prior distribution to the observed career save percentages
+# Calculate median career average save percentage
+median_sv_pct <- median(career_save_pcts$sv_pct)
 
 # Generate sequence of save percentage values
-sv_pct_fits = seq(min(career_save_pcts$adj_sv_pct), max(career_save_pcts$adj_sv_pct), length = 50)
-
-# Fit a beta distribution to the career save percentages using maximum likelihood estimation
-goalie_prior = fitdistr(career_save_pcts$adj_sv_pct, "weibull")
-
-# Extract the estimated shape parameters from the fitted beta distribution
-shape_0 = goalie_prior$estimate[1]
-scale_0 = goalie_prior$estimate[2]
-
-# Calculate the prior probability densities for the sequence of save percentage values
-prior_points = dweibull(sv_pct_fits, shape = shape_0, scale = scale_0)
-
-# Normalize probabilities to sum to 1
-prior_points = prior_points/sum(prior_points)
+sv_pct_fits = seq(min(career_save_pcts$inv_adj_sv_pct), max(career_save_pcts$inv_adj_sv_pct), length = 60)
 
 
-# Fit a beta distribution to the career save percentages using maximum likelihood estimation
-goalie_prior = fitdist(career_save_pcts$adj_sv_pct, "beta")
+# Fit prior distributions to the observed career save percentages
 
-# Extract the estimated shape parameters from the fitted beta distribution
-shape_0 = goalie_prior$estimate[1]
-scale_0 = goalie_prior$estimate[2]
+# Fit a weibull distribution to the career save percentages using maximum likelihood estimation
+weibull_prior = fitdistr(career_save_pcts$inv_adj_sv_pct, "weibull")
+
+# Extract the estimated shape parameters from the fitted weibull distribution
+weibull_1 = weibull_prior$estimate[1]
+weibull_2 = weibull_prior$estimate[2]
 
 # Calculate the prior probability densities for the sequence of save percentage values
-prior_points_gamma = dbeta(sv_pct_fits, shape1 = shape_0, shape2 = scale_0)
+weibull_prior_points = dweibull(sv_pct_fits, shape = weibull_1, scale = weibull_2)
 
 # Normalize probabilities to sum to 1
-prior_points_gamma = prior_points_gamma/sum(prior_points_gamma)
+weibull_prior_points = weibull_prior_points/sum(weibull_prior_points)
+
+
+# Fit a gamma distribution to the career save percentages using maximum likelihood estimation
+gamma_prior = fitdistr(career_save_pcts$inv_adj_sv_pct, "gamma")
+
+# Extract the estimated shape parameters from the fitted gamma distribution
+gamma_1 = gamma_prior$estimate[1]
+gamma_2 = gamma_prior$estimate[2]
+
+# Calculate the prior probability densities for the sequence of save percentage values
+gamma_prior_points = dgamma(sv_pct_fits, shape = gamma_1, rate = gamma_2)
+
+# Normalize probabilities to sum to 1
+gamma_prior_points = gamma_prior_points/sum(gamma_prior_points)
+
+
+# Fit a beta distribution to the career save percentages using maximum likelihood estimation
+beta_prior = fitdist(career_save_pcts$inv_adj_sv_pct, "beta")
+
+# Extract the estimated shape parameters from the fitted beta distribution
+beta_1 = beta_prior$estimate[1]
+beta_2 = beta_prior$estimate[2]
+
+# Calculate the prior probability densities for the sequence of save percentage values
+beta_prior_points = dbeta(sv_pct_fits, shape1 = beta_1, shape2 = beta_2)
+
+# Normalize probabilities to sum to 1
+beta_prior_points = beta_prior_points/sum(beta_prior_points)
+
 
 # Create a histogram of career save percentages overlaid with the prior probability densities
 ggplot() +
-  geom_histogram(data = career_save_pcts, aes(adj_sv_pct), fill = single_color, col = 'black', alpha = 0.75, bins = 25) +
-  geom_line(aes(sv_pct_fits, prior_points*nrow(career_save_pcts)*2), col = 'white', lwd = 1, alpha = 0.75) +
-  geom_line(aes(sv_pct_fits, prior_points_gamma*nrow(career_save_pcts)*2), col = 'grey', lwd = 1, alpha = 0.75) +
+  geom_histogram(data = career_save_pcts, aes(inv_adj_sv_pct), fill = single_color, col = 'black', alpha = 0.75, bins = 20) +
+  geom_line(aes(sv_pct_fits, beta_prior_points*nrow(career_save_pcts)*3), col = 'white', lwd = 1, alpha = 0.75) +
   dark_theme() +
   theme(
     panel.grid.major = element_line(color = 'black'),  # Customize major grid lines
@@ -80,18 +93,156 @@ ggsave(
 
 gsa_exp_player = .953
 exp_g_player = 4129
-posterior_weibull = function(q){
-  (q^gsa_exp_player)*exp(-q*exp_g_player)*(q^(shape_0 - 1))*exp(-(q/scale_0)^shape_0)}
+
 
 
 #Find maximum posterior density
 
 #Skater A
 
-MaxRate.A = optimize(posterior_weibull, c(0.9, 1), maximum = TRUE)$maximum
+
+
+options(scipen = 999)
+shots_against = 1625
+adj_sv_pct_ex = 0.94
+adj_sv_pct_ex = 0.94*shots_against
+
+posterior_weibull = function(q){
+  
+  (q^adj_sv_pct_ex)*exp(-q*shots_against)*(q^(weibull_1 - 1))*exp(-(q/weibull_2)^weibull_1)
+  
+}
+
+MaxRate.A = optimize(posterior_weibull, c(0, 0.1), maximum = TRUE)$maximum
 MaxDensity.A = posterior_weibull(MaxRate.A)
 
 
+Draws.A = as.data.frame(c(runif(10000,min = 0.9,max = 1)))
+colnames(Draws.A)[1] = "Samples"
+
+#Evaluate posterior at each value generated by uniform distro  
+
+Draws.A$Eval = posterior_weibull(Draws.A$Samples)
+
+plot(Draws.A$Samples, Draws.A$Eval)
+#Define rejection region  
+
+Draws.A$Rej.Region = Draws.A$Eval / MaxDensity.A
+
+Draws.A$Rej.Test = c(runif(1000000,min = 0,max = 0.06))
+Draws.A = Draws.A %>% filter(Rej.Test < Rej.Region)
+
+Draws.A %>%
+  ggplot() +
+  geom_density(aes(Samples))
+
+career_posteriors %>%
+  mutate(sv_delta = sv_pct - adj_sv_pct, exp_shot = exp_g/shots) %>%
+  filter(shots > 1000) %>%
+  select(goalie_name, shots, exp_shot, exp_f) %>%
+  arrange(desc(exp_f))
+
+
+# Calculate adjusted save percentage and posterior alpha and beta values
+career_posteriors <- 
+  career_save_pcts %>%
+  mutate(
+    post_sv_pct = (beta_1 + shots - adj_saves)/(beta_1 + beta_2 + shots),  # Calculate adjusted save percentage
+    alpha_post = beta_1 + shots - adj_saves,  # Calculate posterior alpha values
+    beta_post = beta_2 + adj_saves,  # Calculate posterior beta values
+    better_avg = map2_dbl(alpha_post, beta_post, ~mean(rbeta(100000, shape1 = .x, shape2 = .y) < median(career_save_pcts$inv_adj_sv_pct)))  # Calculate proportion of values greater than median_sv_pct
+  )
+
+
+# Function to compare two goalies based on their random outcomes
+comp_h2h <- function(goalie_a, goalie_b) {
+  
+  # Obtain random outcomes for goalie_a
+  outcomes_a <- get_random_outcomes(goalie_a)
+  
+  # Obtain random outcomes for goalie_b
+  outcomes_b <- get_random_outcomes(goalie_b)
+  
+  # Check if any outcomes are available for both goalies
+  if (length(outcomes_a) == 0 || length(outcomes_b) == 0) {
+    stop("Not enough data available for comparison.")
+  }
+  
+  # Compute the mean proportion of outcomes where goalie_a performs better than goalie_b
+  return(paste("Probability that", goalie_a, "is better than", goalie_b, "is", 100*mean(outcomes_a < outcomes_b), "%."))
+}
+
+comp_h2h('Carter Hart', 'Mackenzie Blackwood')
+
+cor(career_posteriors$sv_pct, career_posteriors$adj_sv_pct)
+
+
+
+# Function to plot comparison of two goalie posterior distributions
+plot_h2h_dists <- function(goalie_a, goalie_b) {
+  
+  # Filter the career_posteriors tibble for the specified goalies and calculate the adjusted save distributions
+  adj_sv_dist <-
+    career_posteriors %>%
+    filter(goalie_name %in% c(goalie_a, goalie_b)) %>%
+    transmute(
+      goalie_name, post_sv_pct,
+      adj_sv_dist = pmap(list(alpha_post, beta_post), ~ dbeta(sv_pct_fits, shape1 = ..1, shape2 = ..2))
+    )
+
+  #sv_pct_fits = seq(min(1 - career_posteriors$post_sv_pct), max(1 - career_posteriors$post_sv_pct), length = 40)
+  
+  # Create a histogram of samples from the prior distribution, adjusted save distributions, and vertical lines for medians and adjusted save percentages
+  ggplot() +
+    geom_vline(aes(xintercept = median(career_save_pcts$adj_sv_pct)), lwd = 0.75, col = single_color, alpha = 0.35, linetype = 'dashed') +
+    geom_vline(aes(xintercept = 1 - adj_sv_dist$post_sv_pct[1]), lwd = 0.75, col = 'white', alpha = 0.60, linetype = 'dashed') +
+    geom_histogram(aes(sample(1 - sv_pct_fits, 100000, prob = beta_prior_points, replace = TRUE)), fill = single_color, col = 'black', alpha = 0.5, bins = 60) +
+    geom_vline(aes(xintercept = 1 - adj_sv_dist$post_sv_pct[2]), lwd = 0.75, col = 'grey', alpha = 0.60, linetype = 'dashed') +
+    geom_line(aes(1 - sv_pct_fits, 100000*adj_sv_dist$adj_sv_dist[[2]]/sum(adj_sv_dist$adj_sv_dist[[2]])), col = 'grey', lwd = 0.75, alpha = 0.75) +
+    geom_line(aes(1 - sv_pct_fits, 100000*adj_sv_dist$adj_sv_dist[[1]]/sum(adj_sv_dist$adj_sv_dist[[1]])), col = 'white', lwd = 0.75, alpha = 0.75) +
+    annotate("text", x = 0.915, y = 4000, label = adj_sv_dist$goalie_name[1], col = 'white') +
+    annotate("text", x = 0.915, y = 6000, label = adj_sv_dist$goalie_name[2], col = 'grey') +
+    dark_theme() +
+    theme(
+      panel.grid.major = element_line(color = 'black'),
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank()
+    ) +
+    labs(x = '', y = '') +
+    scale_y_continuous()
+  
+}
+
+# Example of plot_h2h_dists function
+plot_h2h_dists('Carter Hart', 'Mackenzie Blackwood')
+
+
+
+library(VGAM)
+
+career_save_pcts <-
+  shots %>%
+  dplyr::group_by(goalie_name) %>%
+  dplyr::summarize(
+    shots = dplyr::n(),
+    goals = sum(goal),
+    sv_pct = 1 - (goals/shots),
+    exp_g = sum(x_goal),
+    gsa_exp = (sum(x_goal)/sum(goal)) - 1 + 0.5,
+    exp_f = 1 - (exp_g/shots),
+    adj_sv_pct = (.9406 + (sv_pct - exp_f)),
+    inv_adj_sv_pct = 1 - adj_sv_pct,
+    adj_saves = adj_sv_pct*shots,
+    .groups = 'drop') %>%
+  drop_na()
+
+# negative log likelihood of data given alpha; beta
+ll <- function(alpha, beta) {
+  -sum(dbetabinom.ab(career_save_pcts$shots - round(career_save_pcts$adj_saves, 0), career_save_pcts$shots, alpha, beta, log = TRUE))
+}
+
+m <- mle(ll, start = list(alpha = 1, beta = 10), method = "L-BFGS-B", lower=c(0.01,0.01), upper = c(Inf, Inf))
+coef(m)
 
 
 
