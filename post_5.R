@@ -1,4 +1,8 @@
 
+source('libraries.R')
+source('functions.R')
+source('data.R')
+
 # Required packages: dplyr, ggplot2, fitdistrplus
 
 # Required variables:
@@ -110,6 +114,30 @@ career_posteriors <-
   )
 
 
+# Function to obtain random outcomes for a specific goalie from career_posteriors tibble
+get_random_outcomes <- function(goalie_name_) {
+  
+  # Filter the tibble based on the goalie_name
+  filtered_data <- career_posteriors %>% filter(goalie_name == goalie_name_)
+  
+  # Check if any rows match the condition
+  if (nrow(filtered_data) > 0) {
+    
+    # Extract the alpha_post and beta_post values from the filtered tibble
+    alpha_post <- filtered_data$alpha_post
+    beta_post <- filtered_data$beta_post
+    
+    # Use map2_dbl to iterate over the values and compute the mean of the rbeta samples
+    result <- rbeta(100000, shape1 = alpha_post, shape2 = beta_post)
+    
+    # Return the resulting vector of random outcomes
+    return(result)
+  } else {
+    # Handle the case when no rows match the condition
+    return("No data found for the specified goalie")
+  }
+}
+
 # Function to compare two goalies based on their random outcomes
 comp_h2h <- function(goalie_a, goalie_b) {
   
@@ -130,9 +158,6 @@ comp_h2h <- function(goalie_a, goalie_b) {
 
 comp_h2h('Jeremy Swayman', 'Jake Oettinger')
 
-cor(career_posteriors$sv_pct, career_posteriors$adj_sv_pct)
-
-cor(career_posteriors$adj_sv_pct, 1 - career_posteriors$post_sv_pct)
 
 # Function to plot comparison of two goalie posterior distributions
 plot_h2h_dists <- function(goalie_a, goalie_b) {
@@ -146,8 +171,6 @@ plot_h2h_dists <- function(goalie_a, goalie_b) {
       adj_sv_dist = pmap(list(alpha_post, beta_post), ~ dbeta(sv_pct_fits, shape1 = ..1, shape2 = ..2))
     )
 
-  #sv_pct_fits = seq(min(1 - career_posteriors$post_sv_pct), max(1 - career_posteriors$post_sv_pct), length = 40)
-  
   # Create a histogram of samples from the prior distribution, adjusted save distributions, and vertical lines for medians and adjusted save percentages
   ggplot() +
     geom_vline(aes(xintercept = median(career_statistics$adj_sv_pct)), lwd = 0.75, col = single_color, alpha = 0.35, linetype = 'dashed') +
@@ -182,3 +205,80 @@ ggsave(
   dpi = 320  # Set the resolution of the plot
 )
 
+
+
+cor_sv_adj = round(cor(career_posteriors$sv_pct, career_posteriors$adj_sv_pct), 3)
+
+# Compare raw save percentage to adjusted save percentages
+sv_adj <-
+  career_posteriors %>%
+  ggplot() +
+  geom_point(aes(sv_pct, adj_sv_pct, col = exp_g), alpha = 0.75) +
+  scale_colour_gradientn("xG Faced", colours = multiple_colors(10)) +
+  dark_theme() +  # Apply dark theme to the plot
+  annotate("text", x = 0.912, y = 0.95, label = paste0('cor = ', cor_sv_adj), col = 'white') +
+  theme(
+    panel.grid.major = element_line(color = 'black')  # Customize major grid lines to be black
+  ) +
+  labs(x = '\nSV%', y = 'AdjSV%\n')  # Set x and y axis labels to empty
+
+
+cor_adj_post = round(cor(career_posteriors$adj_sv_pct, 1 - career_posteriors$post_sv_pct), 3)
+
+# Compare raw save percentage to adjusted save percentages
+adj_post <-
+  career_posteriors %>%
+  ggplot() +
+  geom_point(aes(adj_sv_pct, 1 - post_sv_pct, col = exp_g), alpha = 0.75) +
+  scale_colour_gradientn("xG Faced", colours = multiple_colors(10)) +
+  dark_theme() +  # Apply dark theme to the plot
+  annotate("text", x = 0.913, y = 0.95, label = paste0('cor = ', cor_adj_post), col = 'white') +
+  theme(
+    panel.grid.major = element_line(color = 'black')  # Customize major grid lines to be black
+  ) +
+  labs(x = '\nAdjSV%', y = 'Posterior AdjSV%\n')  # Set x and y axis labels to empty
+
+
+cor_sv_post = round(cor(career_posteriors$sv_pct, 1 - career_posteriors$post_sv_pct), 3)
+
+# Compare raw save percentage to adjusted save percentages
+sv_post <-
+  career_posteriors %>%
+  ggplot() +
+  geom_point(aes(sv_pct, 1 - post_sv_pct, col = exp_g), alpha = 0.75) +
+  scale_colour_gradientn("xG Faced", colours = multiple_colors(10)) +
+  dark_theme() +  # Apply dark theme to the plot
+  annotate("text", x = 0.913, y = 0.95, label = paste0('cor = ', cor_sv_post), col = 'white') +
+  theme(
+    panel.grid.major = element_line(color = 'black')  # Customize major grid lines to be black
+  ) +
+  labs(x = '\nSV%', y = 'Posterior AdjSV%\n')  # Set x and y axis labels to empty
+
+
+# Compare expected goals faced to posterior adjusted save percentages
+xg_post <-
+career_posteriors %>%
+  ggplot() +
+  geom_point(aes(exp_g, 1 - post_sv_pct, col = exp_g), alpha = 0.75) +
+  scale_colour_gradientn("xG Faced", colours = multiple_colors(10)) +
+  dark_theme() +  # Apply dark theme to the plot
+  theme(
+    panel.grid.major = element_line(color = 'black')  # Customize major grid lines to be black
+  ) +
+  labs(x = '\nxG Faced', y = 'Posterior AdjSV%\n')  # Set x and y axis labels to empty
+
+ggarrange(sv_adj, adj_post, sv_post, xg_post, ncol=2, nrow=2, common.legend = TRUE, legend="right") + bgcolor("black")
+
+
+# Save the plot as a PNG file
+ggsave(
+  filename = 'goalie-five-three.png',  # Specify the file name
+  path = '/Users/ada/Documents/projects/spazznolo.github.io/figs',  # Specify the file path
+  width = 10,  # Set the width of the plot
+  height = 6,  # Set the height of the plot
+  device = 'png',  # Specify the device to use for saving (PNG format)
+  dpi = 320  # Set the resolution of the plot
+)
+
+
+  

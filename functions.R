@@ -127,4 +127,8 @@ dark_theme <- function() {
 }
 
 single_color = "#FFD500"
-multiple_colors = rev(heat.colors(30)[21:30])
+multiple_colors <- colorRampPalette(c('white', "#FFD500"))
+
+
+
+
