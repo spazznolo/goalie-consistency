@@ -1,14 +1,19 @@
 
-source('libraries.R')
-source('functions.R')
-source('data.R')
+# Load necessary libraries from the 'libraries.R' file
+source('libraries.R')  
+
+# Load custom functions from the 'functions.R' file
+source('functions.R')  
+
+# Load data from the 'data.R' file
+source('data.R')  
 
 # Required packages: dplyr, ggplot2, fitdistrplus
 
 # Required variables:
 # - shots (data frame or tibble): Contains shot data, created in 'data' script
 # - single_color: Specifies the fill color for the histogram
-
+# - multiple_colors: Specifies the fill color for gradients
 
 # Calculate career statistics for goalies
 career_statistics <- 
