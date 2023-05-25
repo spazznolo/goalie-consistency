@@ -1,12 +1,12 @@
 
 # Load necessary libraries from the 'libraries.R' file
-source('libraries.R')  
+source('load/libraries.R')  
 
 # Load custom functions from the 'functions.R' file
-source('functions.R')  
+source('load/functions.R')  
 
 # Load data from the 'data.R' file
-source('data.R')  
+source('load/data.R')  
 
 # Required packages: dplyr, ggplot2, fitdistrplus
 
@@ -106,11 +106,11 @@ shots %>%
   count(n) %>%
   mutate(nn = cumsum(nn/sum(nn))) %>%
   ggplot() +
+  geom_hline(yintercept = c(0.274, 0.516, 0.774, 1), col = 'white', alpha = 0.5, linetype = 'dashed') +
+  geom_vline(xintercept = c(1, 3, 7, 16), col = 'white', alpha = 0.5, linetype = 'dashed') +
   geom_bar(aes(n, nn), fill = single_color, stat = 'identity') +
   dark_theme() +
-  geom_hline(yintercept = c(0.274, 0.516, 0.774, 1), col = 'white', alpha = 0.5, linetype = 'dashed') +
   scale_y_continuous(breaks = c(0.274, 0.516, 0.774, 1), labels = scales::percent) +
-  geom_vline(xintercept = c(1, 3, 7, 16), col = 'white', alpha = 0.5, linetype = 'dashed') +
   scale_x_continuous(breaks = c(1, 3, 7, 16)) +
   theme(
     panel.grid.major = element_line(color = 'black')  # Customize major grid lines to be black
@@ -126,4 +126,14 @@ ggsave(
   device = 'png',  # Specify the device to use for saving (PNG format)
   dpi = 320  # Set the resolution of the plot
 )
+
+
+
+shots %>%
+  count(goalie_name, season) %>%
+  count(goalie_name) %>%
+  count(n) %>%
+  mutate(nn = cumsum(nn/sum(nn)))
+
+
 
