@@ -1,7 +1,7 @@
 .DS_Store
 goalie-consistency.Rproj
-entropy-2.odf
-entropy.odf
+images/entropy-1.odf
+images/entropy-2.odf
 .gitattributes
 .Rproj.user
 .Rhistory
