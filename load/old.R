@@ -1,13 +1,3 @@
-
-# insert download directory here
-download_dir <- 'data/'
-
-# download moneypuck data
-temp <- tempfile()
-download.file("https://peter-tanner.com/moneypuck/downloads/shots_2007-2021.zip", temp)
-unzip(temp, exdir = download_dir)
-
-
 goalie_summary <-
   shots %>%
   group_by(goalie_id, goalie_name, season) %>%
@@ -20,7 +10,6 @@ goalie_summary <-
     x_gsaa_s = x_gsaa/shots,
     x_gsaa_xg = x_gsaa/x_g,
     .groups = 'drop'
-    ) %>%
+  ) %>%
   filter(shots >= 800) %>%
   drop_na
-

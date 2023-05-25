@@ -1,4 +1,12 @@
 
+# Required packages: dplyr, MASS, fitdistrplus, ggplot2; loaded with 'load/libraries.R'
+
+# Required objects:
+# - shots (tibble): Contains shot data; created with 'load/data.R'
+# - single_color (string): Specifies the fill color for single color plots; created with 'load/functions.R'
+# - multiple_colors (function): Specifies the fill color for gradients; created with 'load/functions.R'
+
+
 # Load necessary libraries from the 'libraries.R' file
 source('load/libraries.R')  
 
@@ -8,14 +16,40 @@ source('load/functions.R')
 # Load data from the 'data.R' file
 source('load/data.R')  
 
-# Required packages: dplyr, ggplot2, fitdistrplus
 
-# Required variables:
-# - shots (data frame or tibble): Contains shot data, created in 'data' script
-# - single_color: Specifies the fill color for the histogram
-# - multiple_colors: Specifies the fill color for gradients
 
-# Calculate career statistics for goalies
+
+# Plot cumulative distribution function for total seasons played during career for goalies who haven't played the first or last season of available data
+shots %>%
+  anti_join(shots %>% filter(season %in% c(2007, 2022)) %>% distinct(goalie_name), by = 'goalie_name') %>%
+  distinct(goalie_name, season) %>%  # Select unique combinations of goalie_name and season
+  count(goalie_name, name = 'seasons_played') %>%  # Count the number of occurrences for each goalie_name
+  count(seasons_played, name = 'career_length_counts') %>%  # Count the number of goalies for each count of occurrences
+  mutate(cml_career_lengths = cumsum(career_length_counts/sum(career_length_counts))) %>%  # Calculate cumulative sum of normalized counts
+  ggplot() +  # Start a ggplot object
+  geom_hline(yintercept = c(0.469, 0.700, 0.915, 1), col = 'white', alpha = 0.5, linetype = 'dashed') +  # Add horizontal dashed lines for areas of interest
+  geom_vline(xintercept = c(1, 3, 8, 13), col = 'white', alpha = 0.5, linetype = 'dashed') +  # Add vertical dashed lines for areas of interest
+  geom_bar(aes(seasons_played, cml_career_lengths), fill = single_color, stat = 'identity') +  # Add bar plot with counts and normalized counts
+  dark_theme() +  # Apply custom dark theme to the plot
+  scale_y_continuous(breaks = c(0.469, 0.700, 0.915, 1), labels = scales::percent) +  # Add y-axis labels for areas of interest
+  scale_x_continuous(breaks = c(1, 3, 8, 13)) +  # Add x-axis breaks for areas of interest
+  theme(
+    panel.grid.major = element_line(color = 'black')  # Customize major grid lines to be black
+  ) +
+  labs(x = 'Seasons', y = '')  # Set x and y axis labels to empty
+
+# Save the plot as a PNG file
+ggsave(
+  filename = 'goalie-six-one.png',  # Specify the file name
+  path = '/Users/ada/Documents/projects/spazznolo.github.io/figs',  # Specify the file path
+  width = 5,  # Set the width of the plot
+  height = 3,  # Set the height of the plot
+  device = 'png',  # Specify the device to use for saving (PNG format)
+  dpi = 320  # Set the resolution of the plot
+)
+
+
+# Calculate career statistics for goalies facing more than 20 xG
 career_statistics <- 
   shots %>%  # tibble containing shot data loaded by the 'data' script
   group_by(goalie_name) %>%  # Group shots by goalie name
@@ -67,23 +101,9 @@ season_statistics <-
   #dplyr::filter(exp_g > 10, exp_g_1 > 10) %>%  # Filter rows where expected goals is greater than 20
   drop_na()  # Drop rows with missing values
 
-test_index <- sample(1:519, 119)
-train_set <- hm %>% slice(-test_index)
-test_set <- hm %>% slice(test_index)
-
-gsa_exp_model <- lm(gsa_exp ~ gsa_exp_1 + gsa_exp_2 + gsa_exp_3, train_set)
-summary(gsa_exp_model)
-test_set %>%
-  mutate(
-    pred_gsa_exp = predict(gsa_exp_model, test_set)) %>%
-  summarize(
-    cor(pred_gsa_exp, gsa_exp), 
-    mean(abs(pred_gsa_exp - gsa_exp)))
-
-
-sum_mod <- summary(gsa_exp_model)
 
 cor_vec = vector()
+
 for (i in 1:1000) {
   
   cor_boot <- 
@@ -100,32 +120,11 @@ for (i in 1:1000) {
 }
 
 hist(cor_vec)
-shots %>%
-  distinct(goalie_name, season) %>%
-  count(goalie_name) %>%
-  count(n) %>%
-  mutate(nn = cumsum(nn/sum(nn))) %>%
-  ggplot() +
-  geom_hline(yintercept = c(0.274, 0.516, 0.774, 1), col = 'white', alpha = 0.5, linetype = 'dashed') +
-  geom_vline(xintercept = c(1, 3, 7, 16), col = 'white', alpha = 0.5, linetype = 'dashed') +
-  geom_bar(aes(n, nn), fill = single_color, stat = 'identity') +
-  dark_theme() +
-  scale_y_continuous(breaks = c(0.274, 0.516, 0.774, 1), labels = scales::percent) +
-  scale_x_continuous(breaks = c(1, 3, 7, 16)) +
-  theme(
-    panel.grid.major = element_line(color = 'black')  # Customize major grid lines to be black
-  ) +
-  labs(x = 'Seasons', y = '')  # Set x and y axis labels to empty
 
-# Save the plot as a PNG file
-ggsave(
-  filename = 'goalie-six-one.png',  # Specify the file name
-  path = '/Users/ada/Documents/projects/spazznolo.github.io/figs',  # Specify the file path
-  width = 5,  # Set the width of the plot
-  height = 3,  # Set the height of the plot
-  device = 'png',  # Specify the device to use for saving (PNG format)
-  dpi = 320  # Set the resolution of the plot
-)
+
+
+
+
 
 
 
