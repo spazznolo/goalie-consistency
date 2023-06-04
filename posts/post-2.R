@@ -1,4 +1,20 @@
 
+# Required packages: dplyr, MASS, fitdistrplus, ggplot2; loaded with 'load/libraries.R'
+
+# Required objects:
+# - shots (tibble): Contains shot data; created with 'load/data.R'
+# - single_color (string): Specifies the fill color for single color plots; created with 'load/functions.R'
+# - multiple_colors (function): Specifies the fill color for gradients; created with 'load/functions.R'
+
+
+# Load necessary libraries from the 'libraries.R' file
+source('load/libraries.R')  
+
+# Load custom functions from the 'functions.R' file
+source('load/functions.R')  
+
+# Load data from the 'data.R' file
+source('load/data.R')
 
 ## shot-to-shot consistency
 
@@ -39,7 +55,14 @@ tibble(ent_results, standing_pts) %>%
   annotate("text", x = 0.0445, y = 84.5, col = 'white',
            label = paste('r = ',round(cor(ent_results, standing_pts),3),sep=' '), size = 3)
 
-ggsave(filename = 'goalie-one-threee.png', path = '/Users/ada/Documents/GitHub/spazznolo.github.io/figs', width = 5, height = 3, device = 'png', dpi = 320)
+# Save the table as a PNG file
+gtsave(
+  gt_std_pts, # Specify the table name
+  "goalie-two-one.png", # Specify the file name
+  path = '/Users/ada/Documents/projects/spazznolo.github.io/figs', # Specify the file path
+  expand = 0 # Remove border
+)
+
 
 # visualize relationship between inter-shot entropy and expected standing points
 tibble(ent_results, standing_pts) %>%
@@ -54,5 +77,11 @@ tibble(ent_results, standing_pts) %>%
     panel.grid.major = element_line(color = 'black'),
     panel.grid.minor = element_line(color = 'black')) 
 
-ggsave(filename = 'goalie-one-four.png', path = '/Users/ada/Documents/GitHub/spazznolo.github.io/figs', width = 5, height = 3, device = 'png', dpi = 320)
 
+# Save the table as a PNG file
+gtsave(
+  gt_std_pts, # Specify the table name
+  "goalie-two-two.png", # Specify the file name
+  path = '/Users/ada/Documents/projects/spazznolo.github.io/figs', # Specify the file path
+  expand = 0 # Remove border
+)

@@ -51,4 +51,4 @@ goalie_data <-
 # Run garbage collection to close unused connections
 gc(verbose = TRUE)
 
-write_csv(goalie_data, 'goalie_data_2007_2023.csv')
+write_csv(goalie_data, 'data/goalie_data_2007_2023.csv')

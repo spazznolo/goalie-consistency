@@ -1,9 +1,21 @@
 
-# Required packages: dplyr, ggplot2, fitdistrplus
+# Required packages: dplyr, MASS, fitdistrplus, ggplot2; loaded with 'load/libraries.R'
 
-# Required variables:
-# - shots (data frame or tibble): Contains shot data, created in 'data' script
-# - single_color: Specifies the fill color for the histogram
+# Required objects:
+# - shots (tibble): Contains shot data; created with 'load/data.R'
+# - single_color (string): Specifies the fill color for single color plots; created with 'load/functions.R'
+# - multiple_colors (function): Specifies the fill color for gradients; created with 'load/functions.R'
+
+
+# Load necessary libraries from the 'libraries.R' file
+source('load/libraries.R')  
+
+# Load custom functions from the 'functions.R' file
+source('load/functions.R')  
+
+# Load data from the 'data.R' file
+source('load/data.R')
+
 
 
 # Calculate career statistics for goalies
@@ -48,7 +60,7 @@ ggsave(
 
 # Fit prior distribution to the observed career save percentages
 
-# Generate sequence of save percentage values
+# Generate sequence of save percentage values to assign density functions to
 sv_pct_fits = seq(0.915, 0.957, length = 45)
 
 # Fit a beta distribution to the career save percentages using maximum likelihood estimation

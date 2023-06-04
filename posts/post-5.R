@@ -1,24 +1,43 @@
 
+# Required packages: dplyr, MASS, fitdistrplus, ggplot2; loaded with 'load/libraries.R'
+
+# Required objects:
+# - shots (tibble): Contains shot data; created with 'load/data.R'
+# - single_color (string): Specifies the fill color for single color plots; created with 'load/functions.R'
+# - multiple_colors (function): Specifies the fill color for gradients; created with 'load/functions.R'
+
+
 # Load necessary libraries from the 'libraries.R' file
-source('libraries.R')  
+source('load/libraries.R')  
 
 # Load custom functions from the 'functions.R' file
-source('functions.R')  
+source('load/functions.R')  
 
 # Load data from the 'data.R' file
-source('data.R')  
+source('load/data.R')  
 
-# Required packages: dplyr, ggplot2, fitdistrplus
 
-# Required variables:
-# - shots (data frame or tibble): Contains shot data, created in 'data' script
-# - single_color: Specifies the fill color for the histogram
-# - multiple_colors: Specifies the fill color for gradients
+
+exp_f_by_season <-
+  shots %>%
+  group_by(season) %>%
+  summarize(
+    shots = dplyr::n(),  # Count the number of shots
+    goals = sum(goal),  # Sum the number of goals
+    sv_pct = 1 - (goals/shots),  # Calculate save percentage
+    exp_g = sum(x_goal),  # Sum expected goals
+    exp_f = 1 - (exp_g/shots)  # Calculate expected save percentage
+  ) %>%
+  mutate(exp_f = (exp_f + 2*mean(exp_f))/3) %>%
+  select(season, season_exp_f = exp_f)
+
+mean_exp_f <- mean(exp_f_by_season$season_exp_f)
 
 # Calculate career statistics for goalies
 career_statistics <- 
   shots %>%  # tibble containing shot data loaded by the 'data' script
-  group_by(goalie_name) %>%  # Group shots by goalie name
+  left_join(exp_f_by_season, by = 'season') %>%
+  group_by(goalie_name, season) %>%  # Group shots by goalie name
   dplyr::summarize(
     shots = dplyr::n(),  # Count the number of shots
     goals = sum(goal),  # Sum the number of goals
@@ -26,16 +45,30 @@ career_statistics <-
     exp_g = sum(x_goal),  # Sum expected goals
     gsa_exp = (sum(x_goal)/sum(goal)) - 1 + 0.5,  # Calculate GSA-x
     exp_f = 1 - (exp_g/shots),  # Calculate expected save percentage
-    adj_sv_pct = (.9406 + (sv_pct - exp_f)),  # Calculate adjusted save percentage
-    inv_adj_sv_pct = 1 - adj_sv_pct,  # Calculate inverse adjusted save percentage
+    sv_pct_a_exp = sv_pct - exp_f,  # Calculate adjusted save percentage
+    adj_sv_pct = mean_exp_f + #(mean_exp_f - mean(season_exp_f)) + 
+      sv_pct_a_exp,  # Calculate adjusted save percentage
     adj_saves = adj_sv_pct*shots,  # Calculate adjusted saves
+    adj_goals = shots - adj_saves,  # Calculate adjusted saves
     .groups = 'drop'
   ) %>%
-  dplyr::filter(exp_g > 20) %>%  # Filter rows where expected goals is greater than 20
+  group_by(goalie_name) %>%
+  summarize(
+    shots = sum(shots),  # Count the number of shots
+    goals = sum(goals),  # Sum the number of goals
+    exp_g = sum(exp_g),
+    sv_pct = 1 - (goals/shots),  # Calculate save percentage
+    adj_saves = sum(adj_saves),
+    adj_goals = sum(adj_goals),
+    adj_sv_pct = adj_saves/(adj_saves + adj_goals),
+    inv_adj_sv_pct = 1 - adj_sv_pct,
+    .groups = 'drop'
+  ) %>%
+  #dplyr::filter(exp_g > 10) %>%  # Filter rows where expected goals is greater than 10
   drop_na()  # Drop rows with missing values
 
 # Calculate median career average save percentage
-median_sv_pct <- median(career_statistics$sv_pct)
+median_sv_pct <- median(career_statistics$adj_sv_pct)
 
 # Generate sequence of save percentage values
 sv_pct_fits = seq(min(career_statistics$inv_adj_sv_pct), max(career_statistics$inv_adj_sv_pct), length = 45)
@@ -87,8 +120,9 @@ beta_prior_points = beta_prior_points/sum(beta_prior_points)
 
 # Create a histogram of career save percentages overlaid with the prior probability densities
 ggplot() +
-  geom_histogram(data = career_statistics, aes(inv_adj_sv_pct), fill = single_color, col = 'black', alpha = 0.75, bins = 15) +
-  geom_line(aes(sv_pct_fits, beta_prior_points*nrow(career_statistics)*3), col = 'white', lwd = 1, alpha = 0.75) +
+  geom_histogram(data = career_statistics, aes(inv_adj_sv_pct), fill = single_color, col = 'black', alpha = 0.75, bins = 20) +
+  geom_line(aes(sv_pct_fits, beta_prior_points*nrow(career_statistics)*45/20), col = 'white', lwd = 1, alpha = 0.75) +
+  #geom_line(aes(1 - sv_pct_fits, weibull_prior_points*nrow(career_statistics)*45/20), col = 'red', lwd = 1, alpha = 0.75) +
   dark_theme() +
   theme(
     panel.grid.major = element_line(color = 'black'),  # Customize major grid lines
@@ -107,6 +141,24 @@ ggsave(
   dpi = 320  # Set the resolution of the plot
 )
 
+
+
+library(VGAM)
+
+test_careers <- 
+  career_statistics %>% 
+  mutate(adj_goals = round(adj_goals, 0)) %>%
+  filter(shots > 0, adj_goals > 0, adj_goals/shots < 1, adj_goals/shots > 0.025)
+
+# negative log likelihood of data given alpha; beta
+ll <- function(alpha, beta) {
+  -sum(dbetabinom.ab(test_careers$adj_goals, test_careers$shots, alpha, beta, log = TRUE))
+}
+
+m <- mle(ll, start = list(alpha = 1, beta = 20), method = "L-BFGS-B")
+coef(m)
+1 - (306 + 250)/(4906 + 306 + 5000)
+.95*5000
 
 # Calculate adjusted save percentage and posterior alpha and beta values
 career_posteriors <- 
@@ -162,7 +214,7 @@ comp_h2h <- function(goalie_a, goalie_b) {
 }
 
 comp_h2h('Jeremy Swayman', 'Jake Oettinger')
-
+comp_h2h('Tuukka Rask', 'Ilya Sorokin')
 
 # Function to plot comparison of two goalie posterior distributions
 plot_h2h_dists <- function(goalie_a, goalie_b) {
