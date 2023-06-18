@@ -64,7 +64,7 @@ career_statistics <-
     inv_adj_sv_pct = 1 - adj_sv_pct,
     .groups = 'drop'
   ) %>%
-  #dplyr::filter(exp_g > 10) %>%  # Filter rows where expected goals is greater than 10
+  dplyr::filter(exp_g > 50) %>%  # Filter rows where expected goals is greater than 10
   drop_na()  # Drop rows with missing values
 
 # Calculate median career average save percentage
@@ -143,22 +143,6 @@ ggsave(
 
 
 
-library(VGAM)
-
-test_careers <- 
-  career_statistics %>% 
-  mutate(adj_goals = round(adj_goals, 0)) %>%
-  filter(shots > 0, adj_goals > 0, adj_goals/shots < 1, adj_goals/shots > 0.025)
-
-# negative log likelihood of data given alpha; beta
-ll <- function(alpha, beta) {
-  -sum(dbetabinom.ab(test_careers$adj_goals, test_careers$shots, alpha, beta, log = TRUE))
-}
-
-m <- mle(ll, start = list(alpha = 1, beta = 20), method = "L-BFGS-B")
-coef(m)
-1 - (306 + 250)/(4906 + 306 + 5000)
-.95*5000
 
 # Calculate adjusted save percentage and posterior alpha and beta values
 career_posteriors <- 
